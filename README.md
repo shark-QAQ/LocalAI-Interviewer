@@ -43,16 +43,28 @@ ollama list
 
 应能看到 `bge-m3` 和 `qwen2.5:7b` 在列表中。
 
-### 第 3 步：安装前端依赖
+### 第 3 步：安装后端依赖
 
 ```bash
-cd frontend
+cd backend
+
+# 创建 Python 虚拟环境
+uv venv
+
+# 安装所有依赖（包括 FastAPI、ChromaDB 等）
+uv sync
+```
+
+### 第 4 步：安装前端依赖
+
+```bash
+cd ../frontend
 npm install
 ```
 
 等待完成，看到 `added XXX packages` 即成功。
 
-### 第 4 步：一键启动
+### 第 5 步：一键启动
 
 回到项目根目录：
 
@@ -65,7 +77,7 @@ python start.py
 
 看到页面即可开始使用。
 
-### 第 5 步：基本使用流程
+### 第 6 步：基本使用流程
 
 1. **上传简历**：左侧导航 → 拜帖 → 选择 PDF/DOCX 文件 → 呈递拜帖
 2. **导入代码库**（可选）：左侧导航 → 藏经阁 → 输入项目名称和代码路径 → 导入
