@@ -182,6 +182,28 @@ Qwen2.5-7B + BGE-M3 本地约需 7GB 显存；可切 DeepSeek（生成走 API）
 **Q: 如何支持更多文件类型/语言？**
 在 `backend/app/config.py` 的 `allowed_extensions` 中追加后缀即可。
 
+**Q: 复制项目后无法启动？**
+若项目被复制到新目录（如 `123/LocalAI-Interviewer`），需注意：
+1. **端口冲突**：原项目的后端（8000）和前端（5173）可能仍在运行，需先停掉旧进程。
+   ```bash
+   python stop.py   # 或在任务管理器中结束相关进程
+   ```
+2. **前端依赖缺失**：复制时不包含 `node_modules`，需重新安装：
+   ```bash
+   cd frontend
+   npm install
+   ```
+3. **pytest 未安装**：虚拟环境用 `uv` 创建，不含 pip。如需运行测试：
+   ```bash
+   uv pip install pytest pytest-cov
+   ```
+
+**Q: 如何验证服务是否正常？**
+启动后访问以下地址：
+- 后端健康检查：`http://localhost:8000/health`
+- 后端 API 文档：`http://localhost:8000/docs`
+- 前端界面：`http://localhost:5173`
+
 ## License
 
 MIT
