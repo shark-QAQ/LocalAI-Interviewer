@@ -71,6 +71,11 @@ npm install
 
 等待完成，看到 `added XXX packages` 即成功。
 
+> **国内网络问题**：如果 `npm install` 下载速度慢或失败，可使用国内镜像源：
+> ```bash
+> npm install --registry=https://registry.npmmirror.com
+> ```
+
 ### 第 5 步：一键启动
 
 回到项目根目录：
@@ -273,7 +278,7 @@ uv run pytest tests --cov=app.llm_config --cov=app.llm_client \
 ## 常见问题
 
 **Q: 启动后页面空白？**
-确保前端依赖已安装：`cd frontend && npm install`，然后重新 `python start.py`。
+确保前端依赖已安装：`cd frontend && npm install`，然后重新 `python start.py`。如果下载慢，可使用 `npm install --registry=https://registry.npmmirror.com`。
 
 **Q: Ollama 连接失败？**
 1. 确认 Ollama 正在运行：终端执行 `ollama list` 看能否列出模型
