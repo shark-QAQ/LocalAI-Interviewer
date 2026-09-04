@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS resumes (
 CREATE TABLE IF NOT EXISTS interview_sessions (
     id              TEXT PRIMARY KEY,
     resume_id       TEXT NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    project_id      TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    project_id      TEXT,
     target_position TEXT,
     difficulty      TEXT DEFAULT 'mid' CHECK(difficulty IN ('junior','mid','senior','hell')),
     max_rounds      INTEGER DEFAULT 8,
@@ -155,7 +155,7 @@ def init_db() -> None:
                 CREATE TABLE IF NOT EXISTS interview_sessions_new (
                     id TEXT PRIMARY KEY,
                     resume_id TEXT NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-                    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    project_id TEXT,
                     target_position TEXT,
                     difficulty TEXT DEFAULT 'mid' CHECK(difficulty IN ('junior','mid','senior','hell')),
                     max_rounds INTEGER DEFAULT 8,
@@ -188,6 +188,35 @@ def init_db() -> None:
         # 资料支持“单个文件 / 整个文件夹”两种形态
         try:
             conn.execute("ALTER TABLE materials ADD COLUMN kind TEXT DEFAULT 'file'")
+        except sqlite3.OperationalError:
+            pass
+        # 修复 project_id 外键：允许空字符串（纯简历面试）
+        try:
+            fk_info = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='interview_sessions'").fetchone()
+            if fk_info and "NOT NULL REFERENCES projects" in fk_info[0]:
+                conn.execute("PRAGMA foreign_keys=OFF")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS interview_sessions_tmp (
+                        id TEXT PRIMARY KEY,
+                        resume_id TEXT NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
+                        project_id TEXT,
+                        target_position TEXT,
+                        difficulty TEXT DEFAULT 'mid' CHECK(difficulty IN ('junior','mid','senior','hell')),
+                        max_rounds INTEGER DEFAULT 8,
+                        current_round INTEGER DEFAULT 0,
+                        status TEXT DEFAULT 'init' CHECK(status IN ('init','questioning','evaluating','terminated','reported')),
+                        context_summary TEXT,
+                        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        ended_at DATETIME,
+                        expired_at DATETIME,
+                        project_ids TEXT,
+                        focus TEXT DEFAULT 'balanced'
+                    )
+                """)
+                conn.execute("INSERT OR IGNORE INTO interview_sessions_tmp SELECT * FROM interview_sessions")
+                conn.execute("DROP TABLE interview_sessions")
+                conn.execute("ALTER TABLE interview_sessions_tmp RENAME TO interview_sessions")
+                conn.execute("PRAGMA foreign_keys=ON")
         except sqlite3.OperationalError:
             pass
         conn.commit()
