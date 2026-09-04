@@ -741,7 +741,7 @@ def preview_template_html(template_key: str) -> str:
     title_dec = "border-bottom:2px solid #" + accent if meta["style"] == "line" else \
                 "border-left:4px solid #" + accent + ";padding-left:8px" if meta["style"] == "bar" else ""
     demo = {
-        "姓名": "张凯", "求职意向": "AI 大模型应用工程师",
+        "姓名": "张三", "求职意向": "AI 大模型应用工程师",
         "电话": "138-0000-0000", "邮箱": "zk@example.com", "城市": "上海",
     }
     contact = "   |   ".join([x for x in [

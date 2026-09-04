@@ -86,7 +86,7 @@ async def preview_template(key: str) -> HTMLResponse:
     if key not in resume_gen.BUILTIN_TEMPLATES:
         raise HTTPException(status_code=404, detail="模板不存在")
     sample = {
-        "姓名": "张凯", "求职意向": "AI 大模型应用工程师",
+        "姓名": "张三", "求职意向": "AI 大模型应用工程师",
         "电话": "138-0000-0000", "邮箱": "zk@example.com", "城市": "上海",
         "个人简介": "五年后端与 AI 应用经验，聚焦 RAG 与大模型工程化。",
         "技能": "Python / FastAPI / RAG / LangGraph / Docker",
