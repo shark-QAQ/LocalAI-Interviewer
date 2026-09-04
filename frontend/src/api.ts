@@ -130,12 +130,17 @@ export const api = {
       body: JSON.stringify({ query, n_results }),
     }),
 
-  uploadResume: async (file: File) => {
+  uploadResume: async (file: File, options?: { skip_vectorize?: boolean; use_llm?: boolean }) => {
     const form = new FormData()
     form.append('file', file)
+    if (options?.skip_vectorize) form.append('skip_vectorize', 'true')
+    if (options?.use_llm) form.append('use_llm', 'true')
     const res = await fetch('/api/v1/resumes/upload', { method: 'POST', body: form })
-    if (!res.ok) throw new Error('简历上传失败')
-    return res.json() as Promise<{ resume_id: string; parsed_data: any }>
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || '简历上传失败')
+    }
+    return res.json() as Promise<{ resume_id: string; parsed_data: any; index_status?: string }>
   },
 
   getResume: (id: string) => request<any>(`/api/v1/resumes/${id}`),

@@ -14,6 +14,7 @@ from docx import Document as DocxDocument
 from ..config import settings
 from ..database import generate_id, get_db, row_to_dict, now_iso
 from .. import embed_client
+from ..llm_client import llm_generate
 from ..vector_store import vector_store
 from .resume_code_map import ensure_confident
 
@@ -238,6 +239,82 @@ def parse_resume(file_path: Path) -> dict[str, Any]:
     return {"text": text, "parsed": parsed, "skills": skills}
 
 
+_RESUME_PARSE_SYSTEM = """你是一位专业的简历解析助手。请从以下简历文本中提取结构化信息。
+
+请严格按 JSON 格式返回，包含以下字段：
+{
+  "name": "候选人姓名",
+  "skills": ["技能1", "技能2", ...],
+  "years_of_experience": 3.5,
+  "projects": [{"name": "项目名", "description": "项目简介"}],
+  "education": "学历信息（如有）",
+  "summary": "一句话总结候选人背景"
+}
+
+注意：
+- skills 只提取技术技能，不要包含软技能
+- years_of_experience 为数字（年），无法判断时填 null
+- projects 只提取简历中明确描述的项目
+- 只返回 JSON，不要其他文字"""
+
+
+async def parse_resume_with_llm(text: str) -> dict[str, Any]:
+    """使用大模型解析简历文本，返回结构化数据。"""
+    # 截取前 4000 字符避免超长
+    truncated = text[:4000]
+    raw = await llm_generate(
+        prompt=f"请解析以下简历文本：\n\n{truncated}",
+        system=_RESUME_PARSE_SYSTEM,
+        temperature=0.1,
+    )
+    # 提取 JSON
+    raw = (raw or "").strip()
+    # 兼容 markdown code block
+    if "```" in raw:
+        import re as _re
+        m = _re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, _re.DOTALL)
+        if m:
+            raw = m.group(1).strip()
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("LLM resume parse JSON decode failed, raw=%s", raw[:200])
+        # fallback：用正则解析
+        return parse_resume_fallback(text)
+
+    skills = parsed.get("skills") or []
+    name = parsed.get("name") or "未知"
+    years = parsed.get("years_of_experience")
+    projects = parsed.get("projects") or []
+
+    result = {
+        "name": name,
+        "skills": skills,
+        "years_of_experience": years,
+        "projects": projects,
+        "raw_length": len(text),
+        "summary": parsed.get("summary", ""),
+        "education": parsed.get("education", ""),
+    }
+    return {"text": text, "parsed": result, "skills": skills}
+
+
+def parse_resume_fallback(text: str) -> dict[str, Any]:
+    """正则解析兜底（LLM 解析失败时使用）。"""
+    skills = _extract_skills(text)
+    years = _extract_years(text)
+    name = _extract_name(text)
+    projects = _extract_projects(text)
+    parsed = {
+        "name": name,
+        "skills": skills,
+        "years_of_experience": years,
+        "projects": projects,
+        "raw_length": len(text),
+    }
+    return {"text": text, "parsed": parsed, "skills": skills}
+
+
 def _chunk_resume(text: str, resume_id: str, parsed: dict) -> list[dict[str, Any]]:
     """将简历按模块分块"""
     chunks: list[dict[str, Any]] = []
@@ -350,7 +427,12 @@ def _persist_original(file_content: bytes, filename: str, file_hash: str) -> Pat
     return p
 
 
-async def upload_resume(file_content: bytes, filename: str) -> dict[str, Any]:
+async def upload_resume(
+    file_content: bytes,
+    filename: str,
+    skip_vectorize: bool = False,
+    use_llm: bool = False,
+) -> dict[str, Any]:
     file_hash = hashlib.md5(file_content).hexdigest()
     with get_db() as db:
         existing = db.execute(
@@ -359,7 +441,29 @@ async def upload_resume(file_content: bytes, filename: str) -> dict[str, Any]:
 
     original = _persist_original(file_content, filename, file_hash)
     try:
-        result = parse_resume(original)
+        # 提取文本
+        header = open(original, "rb").read(8)
+        if header[:3] == b'%PDF':
+            text = _extract_text_from_pdf(original)
+        elif header[:4] == b'PK\x03\x04':
+            text = _extract_text_from_docx(original)
+        else:
+            suffix = original.suffix.lower()
+            if suffix == ".pdf":
+                text = _extract_text_from_pdf(original)
+            elif suffix == ".docx":
+                text = _extract_text_from_docx(original)
+            else:
+                raise ValueError(f"不支持的文件格式: {suffix}")
+
+        if not text.strip():
+            raise ValueError("解析失败：无法提取文本内容")
+
+        # 根据模式选择解析方式
+        if use_llm:
+            result = await parse_resume_with_llm(text)
+        else:
+            result = parse_resume_fallback(text)
     except Exception:
         original.unlink(missing_ok=True)
         raise
@@ -407,6 +511,15 @@ async def upload_resume(file_content: bytes, filename: str) -> dict[str, Any]:
                     json.dumps(result["skills"], ensure_ascii=False),
                 ),
             )
+
+    # 向量化（可跳过）
+    if skip_vectorize:
+        with get_db() as db:
+            db.execute(
+                "UPDATE resumes SET index_status = 'completed', chunk_count = 0 WHERE id = ?",
+                (resume_id,),
+            )
+        return {"resume_id": resume_id, "parsed_data": result["parsed"], "index_status": "completed"}
 
     # 解析逻辑升级后重传：作废旧向量，按新解析结果重建
     try:

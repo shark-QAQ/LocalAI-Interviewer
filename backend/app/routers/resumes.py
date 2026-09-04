@@ -23,6 +23,8 @@ async def list_resumes() -> list[dict[str, Any]]:
 async def upload_resume(
     file: UploadFile = File(...),
     candidate_name: str | None = Form(None),
+    skip_vectorize: bool = Form(False),
+    use_llm: bool = Form(False),
 ) -> dict[str, Any]:
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -33,7 +35,12 @@ async def upload_resume(
         raise HTTPException(status_code=400, detail="仅支持 PDF、DOCX 格式简历")
 
     try:
-        result = await resume_service.upload_resume(content, file.filename or "unknown")
+        result = await resume_service.upload_resume(
+            content,
+            file.filename or "unknown",
+            skip_vectorize=skip_vectorize,
+            use_llm=use_llm,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

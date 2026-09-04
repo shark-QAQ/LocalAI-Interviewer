@@ -7,6 +7,8 @@ export default function ResumesPage() {
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const [useLlm, setUseLlm] = useState(false)
+  const [skipVectorize, setSkipVectorize] = useState(false)
 
   const [knownResumes, setKnownResumes] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -90,8 +92,10 @@ export default function ResumesPage() {
     if (!file) { setToast('请选择简历文件（PDF/DOCX）'); return }
     setUploading(true); setToast('')
     try {
-      await api.uploadResume(file)
-      setToast('简历上传成功，正在向量化...')
+      const result = await api.uploadResume(file, { skip_vectorize: skipVectorize, use_llm: useLlm })
+      const modeMsg = useLlm ? '（大模型解析）' : ''
+      const vecMsg = skipVectorize ? '（跳过向量化）' : '，正在向量化...'
+      setToast(`简历上传成功${modeMsg}${vecMsg}`)
       loadKnownResumes()
       setFile(null)
     } catch (e: any) {
@@ -165,6 +169,24 @@ export default function ResumesPage() {
               </p>
             </>
           )}
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: "'ZCOOL XiaoWei', serif", fontSize: 13, color: 'var(--ink-medium)' }}>
+            <input type="checkbox" checked={useLlm} onChange={e => setUseLlm(e.target.checked)}
+              style={{ accentColor: 'var(--seal-red)' }} />
+            大模型解析（更准确）
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontFamily: "'ZCOOL XiaoWei', serif", fontSize: 13, color: 'var(--ink-medium)' }}>
+            <input type="checkbox" checked={skipVectorize} onChange={e => setSkipVectorize(e.target.checked)}
+              style={{ accentColor: 'var(--seal-red)' }} />
+            跳过向量化（仅解析，不建立向量索引）
+          </label>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, lineHeight: 1.6, color: 'var(--ink-light)', fontFamily: "'ZCOOL XiaoWei', serif" }}>
+          {useLlm
+            ? '使用大模型提取简历信息，技能/项目识别更准确，但需要 LLM 提供方可用。'
+            : '使用正则匹配提取简历信息，速度快但准确度有限。'}
+          {skipVectorize && ' 跳过向量化后无法在面试中对简历内容进行语义检索。'}
         </div>
         <div style={{ marginTop: 20 }}>
           <InkButton onClick={handleUpload} disabled={uploading || !file}>
