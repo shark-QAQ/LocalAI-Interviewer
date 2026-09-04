@@ -1404,9 +1404,9 @@ async def start_interview(resume_id: str, project_id: str, **kwargs: Any) -> str
     target_position = kwargs.get("target_position", "")
     focus = kwargs.get("focus", "balanced")
     project_ids = [p for p in (kwargs.get("project_ids") or []) if p]
-    if not project_ids:
+    if not project_ids and project_id:
         project_ids = [project_id]
-    if project_id not in project_ids:
+    if project_id and project_id not in project_ids:
         project_ids.insert(0, project_id)
 
     with get_db() as db:
@@ -1414,17 +1414,19 @@ async def start_interview(resume_id: str, project_id: str, **kwargs: Any) -> str
         if not resume_row:
             raise ValueError("简历不存在")
 
-        marks = ",".join("?" for _ in project_ids)
-        rows = db.execute(
-            f"SELECT id, index_status FROM projects WHERE id IN ({marks})",
-            tuple(project_ids),
-        ).fetchall()
-        indexed = {r["id"]: r["index_status"] for r in rows}
-        for pid in project_ids:
-            if indexed.get(pid) is None:
-                raise ValueError("所选项目不存在或未导入")
-            if indexed[pid] != "completed":
-                raise ValueError("所选项目尚未完成索引")
+        # 有项目时验证项目状态；无项目时跳过
+        if project_ids:
+            marks = ",".join("?" for _ in project_ids)
+            rows = db.execute(
+                f"SELECT id, index_status FROM projects WHERE id IN ({marks})",
+                tuple(project_ids),
+            ).fetchall()
+            indexed = {r["id"]: r["index_status"] for r in rows}
+            for pid in project_ids:
+                if indexed.get(pid) is None:
+                    raise ValueError("所选项目不存在或未导入")
+                if indexed[pid] != "completed":
+                    raise ValueError("所选项目尚未完成索引")
 
         session_id = generate_id()
         db.execute(

@@ -232,7 +232,7 @@ export default function InterviewPage() {
   }, [messages])
 
   const handleStart = async () => {
-    if (!resumeId || selectedProjects.size === 0) { setToast('请选择简历和至少一个项目'); return }
+    if (!resumeId) { setToast('请选择简历'); return }
     if (isHell && !hellConfirmed) {
       setHellConfirmOpen(true)
       return
@@ -240,7 +240,8 @@ export default function InterviewPage() {
     setLoading(true); setToast('')
     try {
       const projectIds = [...selectedProjects]
-      const res = await api.createSession(resumeId, projectIds[0], difficulty, maxRounds, projectIds, focus)
+      const firstProject = projectIds[0] || ''
+      const res = await api.createSession(resumeId, firstProject, difficulty, maxRounds, projectIds, focus)
       setSessionId(res.session_id)
       setMessages([])
       setEnded(false)
@@ -293,7 +294,7 @@ export default function InterviewPage() {
   }
 
   useEffect(() => {
-    if (hellConfirmed && isHell && !sessionId && resumeId && selectedProjects.size > 0) {
+    if (hellConfirmed && isHell && !sessionId && resumeId) {
       handleStart()
     }
   }, [hellConfirmed])
@@ -450,8 +451,8 @@ export default function InterviewPage() {
             </h3>
 
             {completedProjects.length === 0 && (
-              <div style={{ padding: '12px 16px', background: 'rgba(194,58,43,0.06)', borderRadius: 3, marginBottom: 16, fontFamily: "'ZCOOL XiaoWei', serif", fontSize: 13, color: 'var(--seal-red)' }}>
-                尚无可面试的项目，请先到「藏经阁」导入并索引代码库
+              <div style={{ padding: '12px 16px', background: 'rgba(194,58,43,0.06)', borderRadius: 3, marginBottom: 16, fontFamily: "'ZCOOL XiaoWei', serif", fontSize: 13, color: 'var(--ink-light)' }}>
+                暂无项目可选，可仅凭简历开始面试（面试官将基于简历出题）
               </div>
             )}
 
@@ -492,7 +493,7 @@ export default function InterviewPage() {
                   color: isHell ? '#777' : 'var(--ink-faint)',
                   fontFamily: "'ZCOOL XiaoWei', serif",
                 }}>
-                  面试将按你勾选的代码库 + 简历 + 资料出题；未勾选的代码库不参与
+                  可选：勾选代码库后面试将结合项目出题；不选则仅基于简历和资料
                 </div>
                 {projectDropdownOpen && (
                   <div className="project-options" style={{
@@ -603,7 +604,7 @@ export default function InterviewPage() {
               </div>
             )}
 
-            <InkButton onClick={handleStart} disabled={loading || !resumeId || selectedProjects.size === 0}
+            <InkButton onClick={handleStart} disabled={loading || !resumeId}
               style={isHell ? {
                 background: 'linear-gradient(135deg, #c23a2b, #8b1a1a)',
                 boxShadow: '0 0 20px rgba(194,58,43,0.4)',

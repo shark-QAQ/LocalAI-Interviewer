@@ -19,7 +19,7 @@ router = APIRouter(prefix="/interviews", tags=["interviews"])
 
 class SessionCreateRequest(BaseModel):
     resume_id: str
-    project_id: str
+    project_id: str = ""
     target_position: str = ""
     max_rounds: int = 8
     difficulty: str = "mid"
