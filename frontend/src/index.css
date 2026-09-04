@@ -1,0 +1,71 @@
+:root {
+  --ink-black: #1a1a1a;
+  --ink-dark: #2d2d2d;
+  --ink-medium: #4a4a4a;
+  --ink-light: #7a7a7a;
+  --ink-faint: #b0a89a;
+  --paper-white: #f5f0e8;
+  --paper-cream: #ede6d6;
+  --paper-aged: #d9d0c0;
+  --paper-dark: #c4b8a4;
+  --seal-red: #c23a2b;
+  --seal-red-light: #d4574a;
+  --jade-green: #5a7a6a;
+  --water-blue: #6a8a9a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
+  background-color: var(--paper-white);
+  color: var(--ink-black);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(180,170,150,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(160,150,130,0.1) 0%, transparent 50%),
+    url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--paper-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 3px;
+}
+
+/* 论道页“项目选择”下拉框：项目较多时保证出现可见滚动条 */
+.project-options {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-faint) rgba(0,0,0,0.05);
+  scrollbar-gutter: stable;
+}
+.project-options::-webkit-scrollbar {
+  width: 8px;
+}
+.project-options::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+}
+.project-options::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+  border-radius: 4px;
+}
+.project-options::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-medium);
+}
+
+::selection {
+  background: rgba(194, 58, 43, 0.15);
+}

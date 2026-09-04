@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+env/
+.env
+data/
+*.db
+*.sqlite3
+chroma_data/
+uploads/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# 桌面版（Electron）—— 依赖与运行时数据全部收敛在项目内
+desktop/node_modules/
+.electron-cache/
+.npm-cache/
+.desktop-userdata/
