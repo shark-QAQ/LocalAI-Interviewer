@@ -325,6 +325,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_answer }),
     })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(err.detail || '面试交互请求失败')
+    }
     const reader = res.body!.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
