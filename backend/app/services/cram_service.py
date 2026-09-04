@@ -6,7 +6,7 @@ from typing import Any
 
 from ..config import settings
 from ..database import generate_id, get_db, now_iso, row_to_dict
-from ..ollama_client import ollama_client
+from .. import embed_client
 from ..llm_client import llm_generate
 from ..vector_store import vector_store
 
@@ -32,7 +32,7 @@ async def generate_cram_content(
     rag_snippets: list[str] = []
     for area in areas[:5]:
         try:
-            embeddings = await ollama_client.embed([area])
+            embeddings = await embed_client.embed([area])
             if embeddings:
                 results = vector_store.query(project_id, embeddings[0], n_results=2)
                 if results and results.get("documents"):

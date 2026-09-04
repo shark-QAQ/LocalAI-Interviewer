@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     embedding_model: str = "bge-m3"
     embedding_dim: int = 1024
 
+    # 嵌入提供方：ollama（本地 Ollama）/ huggingface（本地 sentence-transformers）。默认 ollama，可在设置页运行时切换。
+    embedding_provider: str = "ollama"
+    huggingface_model: str = "BAAI/bge-m3"
+
     # 文本生成提供方：ollama（本地）/ deepseek（API）。默认 ollama，可在设置页运行时切换。
     llm_provider: str = "ollama"
     deepseek_api_key: str = ""

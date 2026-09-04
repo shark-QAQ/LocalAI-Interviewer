@@ -19,19 +19,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Initializing database...")
     init_db()
 
-    logger.info("Checking Ollama connection (embeddings always local bge-m3)...")
-    healthy = await ollama_client.health_check()
-    if healthy:
-        logger.info("Ollama connected successfully")
-        models = await ollama_client.list_models()
-        logger.info("Available models: %s", models)
-        if not await ollama_client.check_model(settings.embedding_model):
-            logger.warning("Embedding model '%s' not found! Run: ollama pull %s", settings.embedding_model, settings.embedding_model)
-        from .llm_config import get_llm_settings
-        if get_llm_settings().provider == "ollama" and not await ollama_client.check_model(settings.llm_model):
-            logger.warning("LLM model '%s' not found! Run: ollama pull %s", settings.llm_model, settings.llm_model)
+    from .llm_config import get_llm_settings
+    llm_cfg = get_llm_settings()
+    embed_provider = llm_cfg.embedding_provider
+
+    logger.info("Embedding provider: %s", embed_provider)
+    if embed_provider == "ollama":
+        logger.info("Checking Ollama connection for embeddings...")
+        healthy = await ollama_client.health_check()
+        if healthy:
+            logger.info("Ollama connected successfully")
+            models = await ollama_client.list_models()
+            logger.info("Available models: %s", models)
+            if not await ollama_client.check_model(settings.embedding_model):
+                logger.warning("Embedding model '%s' not found! Run: ollama pull %s", settings.embedding_model, settings.embedding_model)
+            if llm_cfg.provider == "ollama" and not await ollama_client.check_model(settings.llm_model):
+                logger.warning("LLM model '%s' not found! Run: ollama pull %s", settings.llm_model, settings.llm_model)
+        else:
+            logger.warning("Ollama not reachable at %s - 向量嵌入不可用；文本生成按提供方配置决定", settings.ollama_host)
     else:
-        logger.warning("Ollama not reachable at %s - 向量嵌入不可用；文本生成按提供方配置决定", settings.ollama_host)
+        logger.info("Embedding via HuggingFace: %s", llm_cfg.huggingface_model)
+        try:
+            from . import embed_client
+            result = await embed_client.health_check()
+            if result["ok"]:
+                logger.info("HuggingFace embedding model ready: %s", llm_cfg.huggingface_model)
+            else:
+                logger.warning("HuggingFace embedding model not ready: %s", result.get("message", "unknown error"))
+        except Exception as e:
+            logger.warning("HuggingFace embedding init failed: %s", e)
 
     yield
 
@@ -75,15 +91,19 @@ async def diagnose() -> dict[str, Any]:
     from .config import settings
     from .ollama_client import ollama_client as oc
     from .llm_config import get_llm_settings
+    from . import embed_client
     cfg = get_llm_settings()
     healthy = await oc.health_check()
     models = await oc.list_models() if healthy else []
+    embed_health = await embed_client.health_check()
     return {
         "ollama_host": settings.ollama_host,
         "ollama_healthy": healthy,
         "available_models": models,
-        "embedding_model": settings.embedding_model,
-        "embedding_model_ready": await oc.check_model(settings.embedding_model) if healthy else False,
+        # 嵌入提供方
+        "embedding_provider": cfg.embedding_provider,
+        "embedding_model": cfg.huggingface_model if cfg.embedding_provider == "huggingface" else settings.embedding_model,
+        "embedding_model_ready": embed_health.get("ok", False),
         # 文本生成提供方
         "llm_provider": cfg.provider,
         "ollama_llm_model": settings.llm_model,

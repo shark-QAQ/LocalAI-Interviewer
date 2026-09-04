@@ -1,6 +1,6 @@
 """文本生成提供方调度：本地 Ollama ⇄ DeepSeek API。
 
-- `llm_generate` / `llm_generate_stream`：按运行时配置分发。embedding 不在这里，一律走本地 ollama_client.embed。
+- `llm_generate` / `llm_generate_stream`：按运行时配置分发。embedding 不在这里，走 embed_client 统一嵌入。
 - DeepSeek 走 OpenAI 兼容 `/chat/completions`；默认模型 deepseek-v4-flash，可在设置页自定义。
 - 配置实时读取（见 llm_config.get_llm_settings），切提供方不需要重启。
 - 失败不自动静默回退：DeepSeek 出错直接抛友好 RuntimeError，由上层 SSE error / 任务失败承接。

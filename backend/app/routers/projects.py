@@ -150,10 +150,10 @@ async def search_project(project_id: str, req: SearchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="项目不存在")
 
     from ..vector_store import vector_store
-    from ..ollama_client import ollama_client
+    from .. import embed_client
 
     try:
-        embeddings = await ollama_client.embed([req.query.strip()])
+        embeddings = await embed_client.embed([req.query.strip()])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"向量化失败: {e}")
     if not embeddings:

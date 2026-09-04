@@ -10,7 +10,7 @@ from pypdf import PdfReader
 
 from ..config import settings
 from ..database import generate_id, get_db, now_iso, row_to_dict
-from ..ollama_client import ollama_client
+from .. import embed_client
 from ..vector_store import vector_store
 
 logger = logging.getLogger(__name__)
@@ -271,7 +271,7 @@ async def _index_docs(material_id: str, docs: list[_Doc]) -> None:
         batch_size = 10
         for i in range(0, len(ids), batch_size):
             end = min(i + batch_size, len(ids))
-            embeddings_data = await ollama_client.embed(documents[i:end])
+            embeddings_data = await embed_client.embed(documents[i:end])
             vector_store.add_chunks(
                 material_id,
                 ids[i:end],

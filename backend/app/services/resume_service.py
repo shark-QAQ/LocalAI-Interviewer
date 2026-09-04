@@ -13,7 +13,7 @@ from docx import Document as DocxDocument
 
 from ..config import settings
 from ..database import generate_id, get_db, row_to_dict, now_iso
-from ..ollama_client import ollama_client
+from .. import embed_client
 from ..vector_store import vector_store
 from .resume_code_map import ensure_confident
 
@@ -316,7 +316,7 @@ async def _index_resume(resume_id: str, text: str, parsed: dict) -> None:
         for i in range(0, len(ids), batch_size):
             end = min(i + batch_size, len(ids))
             batch_docs = documents[i:end]
-            embeddings_data = await ollama_client.embed(batch_docs)
+            embeddings_data = await embed_client.embed(batch_docs)
             vector_store.add_chunks(
                 resume_id,
                 ids[i:end],

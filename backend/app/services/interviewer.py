@@ -11,7 +11,7 @@ from typing import Any
 
 from ..config import settings
 from ..database import generate_id, get_db, now_iso, row_to_dict
-from ..ollama_client import ollama_client
+from .. import embed_client
 from ..llm_client import llm_generate, llm_generate_stream
 from ..vector_store import vector_store
 from .evaluator import (
@@ -355,7 +355,7 @@ def _question_cos(a: list[float], b: list[float]) -> float:
 
 async def _embed_question(text: str) -> list[float] | None:
     try:
-        embs = await ollama_client.embed([text])
+        embs = await embed_client.embed([text])
         return embs[0] if embs else None
     except Exception:
         return None
@@ -884,7 +884,7 @@ async def retrieve_knowledge(
     """
     exclude = set(exclude or [])
     try:
-        embeddings = await ollama_client.embed([query])
+        embeddings = await embed_client.embed([query])
     except Exception:
         logger.warning("embed failed for knowledge retrieval")
         return []

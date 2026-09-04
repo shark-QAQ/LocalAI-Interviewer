@@ -9,8 +9,14 @@ const PROVIDER_OPTIONS = [
   { value: 'deepseek', label: 'DeepSeek API' },
 ]
 
+const EMBED_PROVIDER_OPTIONS = [
+  { value: 'ollama', label: 'Ollama (本地 bge-m3)' },
+  { value: 'huggingface', label: 'HuggingFace (本地 sentence-transformers)' },
+]
+
 const DEFAULT_MODEL = 'deepseek-v4-flash'
 const DEFAULT_BASE_URL = 'https://api.deepseek.com'
+const DEFAULT_HF_MODEL = 'BAAI/bge-m3'
 
 function labelStyle(): CSSProperties {
   return { display: 'block', marginBottom: 6, fontFamily: "'ZCOOL XiaoWei', serif", fontSize: 12, color: 'var(--ink-light)' }
@@ -20,7 +26,7 @@ export default function SettingsPage() {
   const [provider, setProvider] = useState<'ollama' | 'deepseek'>('ollama')
   const [model, setModel] = useState(DEFAULT_MODEL)
   const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL)
-  const [thinkingOn, setThinkingOn] = useState(false) // 深度思考（默认关，更快）
+  const [thinkingOn, setThinkingOn] = useState(false)
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [hasKey, setHasKey] = useState(false)
   const [keyTail, setKeyTail] = useState('')
@@ -28,6 +34,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [toast, setToast] = useState('')
+
+  const [embedProvider, setEmbedProvider] = useState<'ollama' | 'huggingface'>('ollama')
+  const [hfModel, setHfModel] = useState(DEFAULT_HF_MODEL)
+  const [embedTest, setEmbedTest] = useState<{ ok: boolean; message: string } | null>(null)
+  const [embedTesting, setEmbedTesting] = useState(false)
 
   const load = () =>
     api.getLlmSettings()
@@ -38,6 +49,8 @@ export default function SettingsPage() {
         setThinkingOn(!(s.deepseek_disable_thinking ?? true))
         setHasKey(s.deepseek_api_key?.has_key ?? false)
         setKeyTail(s.deepseek_api_key?.tail ?? '')
+        setEmbedProvider(s.embedding?.provider || 'ollama')
+        setHfModel(s.embedding?.model || DEFAULT_HF_MODEL)
         return s.provider
       })
       .catch((e) => setToast(e.message))
@@ -76,6 +89,27 @@ export default function SettingsPage() {
     }
   }
 
+  const runEmbedTest = async () => {
+    setEmbedTesting(true)
+    setEmbedTest(null)
+    try {
+      const r = await api.testEmbed({
+        embedding_provider: embedProvider,
+        huggingface_model: embedProvider === 'huggingface' ? hfModel.trim() : undefined,
+      })
+      setEmbedTest({
+        ok: r.ok,
+        message: r.ok
+          ? `嵌入就绪 · ${r.model ?? r.provider}${r.latency_ms != null ? ` · ${r.latency_ms}ms` : ''}`
+          : r.message,
+      })
+    } catch (e: any) {
+      setEmbedTest({ ok: false, message: e.message })
+    } finally {
+      setEmbedTesting(false)
+    }
+  }
+
   const handleSave = async () => {
     if (needKey) { setToast('切到 DeepSeek 前请先填写 API Key'); return }
     setSaving(true)
@@ -87,12 +121,21 @@ export default function SettingsPage() {
         body.deepseek_disable_thinking = !thinkingOn
         if (apiKeyInput.trim()) body.deepseek_api_key = apiKeyInput.trim()
       }
+      body.embedding_provider = embedProvider
+      if (embedProvider === 'huggingface' && hfModel.trim()) {
+        body.huggingface_model = hfModel.trim()
+      }
       const s = await api.saveLlmSettings(body as any)
       setThinkingOn(!(s.deepseek_disable_thinking ?? true))
       setHasKey(s.deepseek_api_key?.has_key ?? false)
       setKeyTail(s.deepseek_api_key?.tail ?? '')
       setApiKeyInput('')
-      setToast(provider === 'deepseek' ? '已保存，立即生效（文本生成走 DeepSeek）' : '已切回本地 Ollama')
+      setEmbedProvider(s.embedding?.provider as 'ollama' | 'huggingface' || 'ollama')
+      setHfModel(s.embedding?.model || DEFAULT_HF_MODEL)
+      const embedMsg = embedProvider === 'huggingface' ? '（嵌入走 HuggingFace 本地模型）' : '（嵌入走 Ollama bge-m3）'
+      setToast(provider === 'deepseek'
+        ? `已保存，立即生效（文本生成走 DeepSeek ${embedMsg}）`
+        : `已切回本地 Ollama ${embedMsg}`)
       setTest(null)
     } catch (e: any) {
       setToast(e.message)
@@ -117,7 +160,7 @@ export default function SettingsPage() {
   return (
     <div>
       <PageTitle>设置</PageTitle>
-      <SubTitle>文本生成提供方 · 模型 · 密钥</SubTitle>
+      <SubTitle>文本生成提供方 · 嵌入模型 · 密钥</SubTitle>
       {toast && <Toast message={toast} type={toast.includes('失败') || toast.includes('请先') ? 'error' : 'info'} />}
 
       <Card>
@@ -141,8 +184,6 @@ export default function SettingsPage() {
               {provider === 'deepseek'
                 ? '出题 / 问答 / 评分 / 八股等文本生成走 DeepSeek API。'
                 : '使用本地 Ollama 生成（模型：请先在 Ollama 拉取）。'}
-              <br />
-              向量检索（Embedding）始终用本地 bge-m3，与文本生成提供方无关。
             </div>
           </div>
 
@@ -193,7 +234,7 @@ export default function SettingsPage() {
                   ]}
                   style={{ width: '100%' }} />
                 <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: 'var(--ink-light)', fontFamily: "'ZCOOL XiaoWei', serif" }}>
-                  该模型默认会在作答前先“思考”一长段。出题/评分/品鉴建议关闭以显著提速；需要深度推理时再开启。
+                  该模型默认会在作答前先"思考"一长段。出题/评分/品鉴建议关闭以显著提速；需要深度推理时再开启。
                 </div>
               </div>
             </>
@@ -224,6 +265,62 @@ export default function SettingsPage() {
               border: `1px solid ${test.ok ? 'rgba(90,122,106,0.25)' : 'rgba(194,58,43,0.25)'}`,
             }}>
               {test.ok ? '✓ ' : '✕ '}{test.message}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card style={{ marginTop: 20 }}>
+        <h3 style={{ fontFamily: "'Ma Shan Zheng', cursive", fontSize: 22, marginBottom: 20, color: 'var(--ink-dark)' }}>
+          向量嵌入（Embedding）
+        </h3>
+
+        <div style={{ maxWidth: 520 }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle()}>嵌入提供方</label>
+            <InkSelect
+              value={embedProvider}
+              onChange={(v) => {
+                setEmbedProvider(v as 'ollama' | 'huggingface')
+                setEmbedTest(null)
+              }}
+              options={EMBED_PROVIDER_OPTIONS}
+              style={{ width: '100%' }} />
+            <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: 'var(--ink-light)', fontFamily: "'ZCOOL XiaoWei', serif" }}>
+              {embedProvider === 'huggingface'
+                ? '使用本地 HuggingFace sentence-transformers 加载模型，无需 Ollama。首次加载较慢，后续自动缓存。'
+                : '通过本地 Ollama 运行 bge-m3 嵌入模型（需先 ollama pull bge-m3）。'}
+            </div>
+          </div>
+
+          {embedProvider === 'huggingface' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle()}>模型名或本地路径</label>
+              <InkInput value={hfModel} onChange={setHfModel} placeholder="BAAI/bge-m3 或 D:\models\bge-m3" />
+              <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.6, color: 'var(--ink-light)', fontFamily: "'ZCOOL XiaoWei', serif" }}>
+                填 HuggingFace 模型 ID（如 BAAI/bge-m3）会自动下载；填本地目录路径（如 D:\models\bge-m3）则直接加载，不联网。
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <InkButton onClick={handleSave} disabled={saving}>
+              {saving ? '保存中...' : '保存并应用'}
+            </InkButton>
+            <InkButton onClick={runEmbedTest} disabled={embedTesting}>
+              {embedTesting ? '测试中...' : '测试嵌入'}
+            </InkButton>
+          </div>
+
+          {embedTest && (
+            <div style={{
+              marginTop: 14, padding: '10px 14px', borderRadius: 3, fontSize: 13,
+              fontFamily: "'Noto Serif SC', serif", lineHeight: 1.5,
+              background: embedTest.ok ? 'rgba(90,122,106,0.08)' : 'rgba(194,58,43,0.07)',
+              color: embedTest.ok ? 'var(--jade-green)' : 'var(--seal-red)',
+              border: `1px solid ${embedTest.ok ? 'rgba(90,122,106,0.25)' : 'rgba(194,58,43,0.25)'}`,
+            }}>
+              {embedTest.ok ? '✓ ' : '✕ '}{embedTest.message}
             </div>
           )}
         </div>

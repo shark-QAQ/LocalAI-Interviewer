@@ -2,7 +2,7 @@
 
 本地化智能面试官 —— 基于你本地的代码库和简历，动态生成技术问题并模拟真实面试；另附 **MBTI 职业性格测试** 与 **AI 简历生成** 工具。
 
-默认全程离线（本地 Ollama），也支持切换到 **DeepSeek API**（文本生成更快更强；向量检索仍走本地 bge-m3）。
+默认全程离线（本地 Ollama），也支持切换到 **DeepSeek API**（文本生成更快更强；向量检索走本地 bge-m3，支持 Ollama 或 HuggingFace 两种加载方式）。
 
 ## 功能
 
@@ -25,21 +25,27 @@
 | 后端 | Python 3.10+ / FastAPI / SQLite / ChromaDB |
 | 前端 | React 19 / TypeScript / Vite / 水墨风 UI |
 | LLM（可选） | 本地 Ollama（默认 `qwen2.5:7b`）⇄ DeepSeek API（默认 `deepseek-v4-flash`，可自定义） |
-| Embedding | 本地 Ollama `bge-m3`（1024 维，始终本地） |
+| Embedding | 本地 `bge-m3`（1024 维）—— 通过 Ollama 或 HuggingFace sentence-transformers 加载，可在设置页切换 |
 
 ## 环境要求
 
 - Python 3.10+、Node.js 18+
-- [Ollama](https://ollama.com/) 已安装并运行（**至少需要 bge-m3**；若只用 DeepSeek 生成也仍需 Ollama 提供向量）
+- [Ollama](https://ollama.com/) 已安装并运行（默认需要 bge-m3 用于向量嵌入；若选 HuggingFace 嵌入模式则 Ollama 可仅用于本地文本生成）
 - GPU 推荐（本地推理时）：RTX 3060 12GB 或以上
 - 可选：DeepSeek API Key（切到 API 模式时使用）
+- 可选：`sentence-transformers`（选 HuggingFace 嵌入模式时需安装）
 
 ### 1. 安装 Ollama 并拉取模型
 
 ```bash
-ollama pull bge-m3          # 向量模型（必需）
+ollama pull bge-m3          # 向量模型（Ollama 模式必需，HuggingFace 模式可跳过）
 ollama pull qwen2.5:7b      # 本地生成模型（默认）
 ```
+
+> 若使用 HuggingFace 嵌入模式（设置页切换），无需安装 Ollama 的 bge-m3，但需安装 Python 依赖：
+> ```bash
+> uv pip install -e ".[huggingface]"
+> ```
 
 ### 2. 启动
 
@@ -57,9 +63,22 @@ python start.py             # 一键启动前后端并自动打开浏览器/应�
 - 填一次 API Key 即持久化到 `data/llm_settings.json`（项目内、删项目即干净；GET 只显示尾号，不回明文）。
 - 模型名默认为 `deepseek-v4-flash`，可自定义；API 地址可填中转/代理。
 - 「测试连接」可即时验证。
-- 环境变量同样可配（会被设置页覆盖）：`APP_LLM_PROVIDER`、`APP_DEEPSEEK_API_KEY`、`APP_DEEPSEEK_BASE_URL`、`APP_DEEPSEEK_MODEL`、`APP_LLM_MODEL`、`APP_EMBEDDING_MODEL`、`OLLAMA_HOST`。
+- 环境变量同样可配（会被设置页覆盖）：`APP_LLM_PROVIDER`、`APP_DEEPSEEK_API_KEY`、`APP_DEEPSEEK_BASE_URL`、`APP_DEEPSEEK_MODEL`、`APP_LLM_MODEL`、`APP_EMBEDDING_MODEL`、`APP_EMBEDDING_PROVIDER`、`APP_HUGGINGFACE_MODEL`、`OLLAMA_HOST`。
 
-**说明**：DeepSeek 只接管"文本生成"（出题/问答/评分/摘要/参考答案/八股等）；**向量 Embedding 始终用本地 bge-m3**，因此 Ollama 仍需运行。
+**说明**：DeepSeek 只接管"文本生成"（出题/问答/评分/摘要/参考答案/八股等）；**向量 Embedding 始终用本地 bge-m3**。
+
+## 嵌入提供方：Ollama ⇄ HuggingFace
+
+「设置」页底部 **向量嵌入（Embedding）** 区域可切换嵌入后端，**无需重启**：
+
+| 模式 | 说明 |
+|------|------|
+| **Ollama**（默认） | 通过 Ollama 运行 `bge-m3`，需先 `ollama pull bge-m3` |
+| **HuggingFace** | 通过 `sentence-transformers` 加载本地模型，无需 Ollama 的 bge-m3 |
+
+- 填入 HuggingFace 模型 ID（如 `BAAI/bge-m3`）会自动下载；填本地目录路径（如 `D:\models\bge-m3`）则直接加载不联网。
+- 首次加载较慢，后续自动缓存。切换模型后需点「保存并应用」生效。
+- 安装 HuggingFace 依赖：`uv pip install -e ".[huggingface]"`
 
 ## 桌面版（Electron，可选）
 
@@ -93,8 +112,9 @@ python start.py             # 一键启动前后端并自动打开浏览器/应�
 | `GET` | `/api/v1/interviews/sessions/{id}/report` | 面试报告 |
 | `POST` | `/api/v1/cram/generate` | 生成八股文 |
 | `GET` | `/api/v1/llm/settings` | 查看 LLM 提供方配置（key 脱敏） |
-| `PUT` | `/api/v1/llm/settings` | 保存提供方/模型/Key |
-| `POST` | `/api/v1/llm/test` | 测试连接 |
+| `PUT` | `/api/v1/llm/settings` | 保存提供方/模型/Key/嵌入设置 |
+| `POST` | `/api/v1/llm/test` | 测试 LLM 连接 |
+| `POST` | `/api/v1/llm/test-embed` | 测试嵌入后端（Ollama/HuggingFace） |
 | `GET` | `/api/v1/mbti/questions` | MBTI 出题（20 题，门禁） |
 | `POST` | `/api/v1/mbti/result` | MBTI 判分 + 结论（门禁） |
 | `GET` | `/api/v1/resume-gen/example-template` | 下载示例占位模板（门禁） |
@@ -115,7 +135,8 @@ LocalAI-Interviewer/
 │   │   ├── database.py          # SQLite（interview.db）
 │   │   ├── llm_config.py        # 提供方运行时配置（data/llm_settings.json）
 │   │   ├── llm_client.py        # 文本生成调度：Ollama ⇄ DeepSeek
-│   │   ├── ollama_client.py     # 本地 Ollama（含 embed/bge-m3）
+│   │   ├── ollama_client.py     # 本地 Ollama（文本生成 + Ollama 嵌入）
+│   │   ├── embed_client.py      # 统一嵌入客户端：Ollama ⇄ HuggingFace
 │   │   ├── vector_store.py      # ChromaDB
 │   │   ├── routers/             # projects/resumes/materials/interviews/cram/llm/mbti/resume_gen
 │   │   └── services/            # 业务逻辑（含 mbti_service / resume_gen / evaluator…）
@@ -174,10 +195,10 @@ uv run pytest tests --cov=app.llm_config --cov=app.llm_client \
 单题评分现包含 `correctness`（切题/正确）+ `off_topic/critical_error` 门控，答非所问/硬伤/过短会被代码层强制压到 ≤3；参考答案会作为判分对照。
 
 **Q: Ollama 连接失败？**
-先确认 `ollama serve`；至少需拉取 `bge-m3`（向量必需），生成用模型按所选提供方决定。
+先确认 `ollama serve`；默认需拉取 `bge-m3`（向量必需）和 `qwen2.5:7b`（生成必需）。若已切换到 HuggingFace 嵌入模式，则 bge-m3 不再必需；若切换到 DeepSeek 生成，则 qwen2.5:7b 不再必需。
 
 **Q: 本地生成慢/显存不足？**
-Qwen2.5-7B + BGE-M3 本地约需 7GB 显存；可切 DeepSeek（生成走 API）以降低本机负载，或换更小的本地模型。
+Qwen2.5-7B + BGE-M3 本地约需 7GB 显存；可切 DeepSeek（生成走 API）以降低本机负载，或换更小的本地模型。嵌入也可切 HuggingFace 模式，利用 CPU 推理释放 Ollama 显存。
 
 **Q: 如何支持更多文件类型/语言？**
 在 `backend/app/config.py` 的 `allowed_extensions` 中追加后缀即可。

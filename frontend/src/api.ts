@@ -19,7 +19,7 @@ export interface LlmSettings {
   deepseek_base_url: string
   deepseek_disable_thinking: boolean
   deepseek_api_key: LlmKeyInfo
-  embedding: { provider: string; model: string }
+  embedding: { provider: 'ollama' | 'huggingface'; model: string }
   ollama_host?: string
   source?: string
 }
@@ -31,6 +31,14 @@ export interface LlmTestResult {
   latency_ms?: number
   snippet?: string
   models?: string[]
+}
+export interface EmbedTestResult {
+  ok: boolean
+  provider: string
+  model?: string
+  message: string
+  latency_ms?: number
+  embed_test?: boolean
 }
 
 export interface MbtiQuestion {
@@ -224,6 +232,8 @@ export const api = {
     deepseek_base_url?: string
     deepseek_api_key?: string
     deepseek_disable_thinking?: boolean
+    embedding_provider?: 'ollama' | 'huggingface'
+    huggingface_model?: string
   }) =>
     request<LlmSettings>('/api/v1/llm/settings', {
       method: 'PUT',
@@ -232,6 +242,12 @@ export const api = {
 
   testLlm: (body?: Record<string, string>) =>
     request<LlmTestResult>('/api/v1/llm/test', {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
+
+  testEmbed: (body?: { embedding_provider?: string; huggingface_model?: string }) =>
+    request<EmbedTestResult>('/api/v1/llm/test-embed', {
       method: 'POST',
       body: JSON.stringify(body || {}),
     }),
