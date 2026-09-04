@@ -55,6 +55,13 @@ uv venv
 uv sync
 ```
 
+> **如果要用 HuggingFace 本地模型做嵌入**（在设置页切换），还需安装 sentence-transformers：
+> ```bash
+> cd backend
+> uv pip install -e ".[huggingface]"
+> ```
+> 这会额外安装 `torch`（约 118MB+）和 `sentence-transformers`。首次使用会自动下载模型到本地缓存；填本地路径则直接加载不联网。
+
 ### 第 4 步：安装前端依赖
 
 ```bash
