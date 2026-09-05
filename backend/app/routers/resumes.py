@@ -30,8 +30,10 @@ async def upload_resume(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="文件大小不能超过10MB")
 
-    header = content[:8]
-    if not (header[:3] == b'%PDF' or header[:4] == b'PK\x03\x04'):
+    head = content[:1024]
+    is_pdf = b'%PDF' in head
+    is_docx = content[:4] == b'PK\x03\x04'
+    if not (is_pdf or is_docx):
         raise HTTPException(status_code=400, detail="仅支持 PDF、DOCX 格式简历")
 
     try:

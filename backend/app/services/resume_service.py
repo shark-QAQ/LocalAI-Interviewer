@@ -442,10 +442,12 @@ async def upload_resume(
     original = _persist_original(file_content, filename, file_hash)
     try:
         # 提取文本
-        header = open(original, "rb").read(8)
-        if header[:3] == b'%PDF':
+        head = open(original, "rb").read(1024)
+        is_pdf = b'%PDF' in head
+        is_docx = head[:4] == b'PK\x03\x04'
+        if is_pdf:
             text = _extract_text_from_pdf(original)
-        elif header[:4] == b'PK\x03\x04':
+        elif is_docx:
             text = _extract_text_from_docx(original)
         else:
             suffix = original.suffix.lower()

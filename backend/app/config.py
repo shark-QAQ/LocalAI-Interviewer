@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # 默认关闭思考以大幅提速（如需深度推理可设 APP_DEEPSEEK_DISABLE_THINKING=false）
     deepseek_disable_thinking: bool = True
 
-    llm_timeout: float = 120.0
+    llm_timeout: float = 300.0
     embed_timeout: float = 300.0
     max_history_rounds: int = 3
     default_max_rounds: int = 8
